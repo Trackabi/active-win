@@ -49,7 +49,7 @@ SaveURl:
     ; MsgBox, %name%`n%title%
 Return
 
-^F5::
+!F12::
     SetTimer, SaveURL, Off
 Return
 

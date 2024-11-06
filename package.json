@@ -1,11 +1,11 @@
 {
-	"name": "active-win",
-	"version": "8.1.0",
-	"description": "Get metadata about the active window (title, id, bounds, owner, URL, etc)",
+	"name": "get-windows",
+	"version": "9.2.0",
+	"description": "Get metadata about the active window and open windows (title, id, bounds, owner, URL, etc)",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/sindresorhus/active-win.git"
+		"url": "git+https://github.com/sindresorhus/get-windows.git"
 	},
 	"funding": "https://github.com/sponsors/sindresorhus",
 	"author": {
@@ -13,20 +13,24 @@
 		"email": "sindresorhus@gmail.com",
 		"url": "https://sindresorhus.com"
 	},
-	"engines": {
-		"node": ">=14"
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"default": "./index.js"
 	},
-	"main": "./index",
-	"types": "./index.d.ts",
+	"main": "./index.js",
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18.18"
+	},
 	"binary": {
-		"module_name": "node-active-win",
+		"module_name": "node-get-windows",
 		"module_path": "./lib/binding/napi-{napi_build_version}-{platform}-{libc}-{arch}",
-		"host": "https://github.com/sindresorhus/active-win/releases/download/",
+		"host": "https://github.com/sindresorhus/get-windows/releases/download/",
 		"remote_path": "v{version}",
 		"package_name": "napi-{napi_build_version}-{platform}-{libc}-{arch}.tar.gz",
 		"napi_versions": [
-			3,
-			6
+			9
 		]
 	},
 	"scripts": {
@@ -35,7 +39,7 @@
 		"build:windows:install": "node-pre-gyp install --fallback-to-build",
 		"build:windows": "node-pre-gyp build",
 		"build:windows:debug": "node-pre-gyp build --debug",
-		"build:macos": "swift build --configuration=release --arch arm64 --arch x86_64 && mv .build/apple/Products/Release/active-win main",
+		"build:macos": "swift build --configuration=release --arch arm64 --arch x86_64 && mv .build/apple/Products/Release/get-windows main",
 		"install": "node-pre-gyp install --fallback-to-build"
 	},
 	"files": [
@@ -53,10 +57,11 @@
 		"app",
 		"application",
 		"window",
-		"win",
+		"windows",
 		"active",
 		"focused",
 		"current",
+		"open",
 		"title",
 		"name",
 		"id",
@@ -76,25 +81,22 @@
 		"brave"
 	],
 	"devDependencies": {
-		"ava": "^2.4.0",
-		"tsd": "^0.14.0",
-		"xo": "^0.38.2",
-		"node-pre-gyp-github": "^1.4.4"
+		"ava": "^6.1.3",
+		"tsd": "^0.31.1",
+		"xo": "^0.59.3",
+		"node-pre-gyp-github": "^2.0.0"
 	},
 	"optionalDependencies": {
-		"@mapbox/node-pre-gyp": "^1.0.10",
-		"node-addon-api": "^5.0.0",
-		"node-gyp": "^9.3.0"
+		"@mapbox/node-pre-gyp": "^1.0.11",
+		"node-addon-api": "^8.1.0",
+		"node-gyp": "^10.2.0"
 	},
 	"peerDependencies": {
-		"node-gyp": "^9.3.0"
+		"node-gyp": "^10.1.0"
 	},
 	"peerDependenciesMeta": {
 		"node-gyp": {
 			"optional": true
 		}
-	},
-	"ava": {
-		"verbose": true
 	}
 }

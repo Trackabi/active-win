@@ -1,19 +1,19 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.9
 import PackageDescription
 
 let package = Package(
-	name: "ActiveWin",
+	name: "GetWindows",
 	products: [
 		.executable(
-			name: "active-win",
+			name: "get-windows",
 			targets: [
-				"ActiveWinCLI"
+				"GetWindowsCLI"
 			]
 		)
 	],
 	targets: [
 		.executableTarget(
-			name: "ActiveWinCLI"
+			name: "GetWindowsCLI"
 		)
 	]
 )

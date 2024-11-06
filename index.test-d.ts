@@ -1,10 +1,22 @@
 import {expectType, expectError} from 'tsd';
-import activeWindow = require('./index.js');
-import {Result, LinuxResult, MacOSResult, WindowsResult, BaseOwner} from './index.js';
+import {
+	activeWindow,
+	activeWindowSync,
+	openWindows,
+	openWindowsSync,
+	type Result,
+	type LinuxResult,
+	type MacOSResult,
+	type WindowsResult,
+	BaseOwner,
+} from './index.js';
 
 expectType<Promise<Result | undefined>>(activeWindow());
 
-const result = activeWindow.sync({screenRecordingPermission: false});
+const result = activeWindowSync({
+	screenRecordingPermission: false,
+	accessibilityPermission: false,
+});
 
 expectType<Result | undefined>(result);
 
@@ -27,9 +39,11 @@ if (result) {
 		expectType<string | undefined>(result.url);
 	} else if (result.platform === 'linux') {
 		expectType<LinuxResult>(result);
-		expectError(result.owner.bundleId);
 	} else {
 		expectType<WindowsResult>(result);
-		expectError(result.owner.bundleId);
+		expectType<number>(result.contentBounds.x);
+		expectType<number>(result.contentBounds.y);
+		expectType<number>(result.contentBounds.width);
+		expectType<number>(result.contentBounds.height);
 	}
 }

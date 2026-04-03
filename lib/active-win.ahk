@@ -15,24 +15,25 @@ EscapeJSON(str) {
 FileEncoding "UTF-8"
 
 ; Variable declarations
-ModernBrowsers := "ApplicationFrameWindow,Chrome_WidgetWin_0,Chrome_WidgetWin_1,Maxthon3Cls_MainFrm,MozillaWindowClass,Slimjet_WidgetWin_1"
+ModernBrowsers :=
+    "ApplicationFrameWindow,Chrome_WidgetWin_0,Chrome_WidgetWin_1,Maxthon3Cls_MainFrm,MozillaWindowClass,Slimjet_WidgetWin_1"
 ModernbrowsersProcesses := "msedge.exe,iexplore.exe,chrome.exe,opera.exe,brave.exe,vivaldi.exe,MicrosoftEdge.exe"
 
 ; Main loop instead of timer
-Loop {
+loop {
     try {
         SaveURL()
     } catch Error as e {
         ; If there's an error, output a JSON error object and continue
-        jsonOutput := "{`"name`":null,`"displayName`":null,`"title`":null,`"url`":null,`"error`":`"" . EscapeJSON(e.Message) . "`"}"
+        jsonOutput := "{`"name`":null,`"displayName`":null,`"title`":null,`"url`":null,`"error`":`"" . EscapeJSON(e.Message
+        ) . "`"}"
         ; MsgBox jsonOutput
         FileAppend(jsonOutput "`n", "*", "UTF-8")
     }
     Sleep 1500 ; 1.8 seconds between checks
 }
 
-SaveURl()
-{
+SaveURl() {
     ; Get active window
     activeWin := WinExist("A")
     if (!activeWin) {
@@ -40,7 +41,7 @@ SaveURl()
         jsonOutput := "{`"name`":null,`"displayName`":null,`"title`":null,`"url`":null}"
         ; MsgBox jsonOutput
         FileAppend(jsonOutput "`n", "*", "UTF-8")
-        Return
+        return
     }
 
     ; Try to get window class, title and process name with error handling
@@ -67,78 +68,73 @@ SaveURl()
         displayName := ""
     }
 
-    if InStr(ModernbrowsersProcesses, name)
-    {
-        If InStr(ModernBrowsers, sClass)
-        {
+    if InStr(ModernbrowsersProcesses, name) {
+        if InStr(ModernBrowsers, sClass) {
             accData := GetAccData()
             if !accData {
-                Return
+                return
             }
             _2Data := accData[2]
             if !_2Data {
                 _2Data := "new tab"
             }
             ; Format output as JSON
-            jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) . "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":`"" . EscapeJSON(_2Data) . "`"}"
+            jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) .
+            "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":`"" . EscapeJSON(_2Data) . "`"}"
             ; MsgBox jsonOutput
             FileAppend(jsonOutput "`n", "*", "UTF-8")
             _2Data := ""
-            Return
+            return
         } else {
             ddeData := GetBrowserURL_DDE(sClass)
-            If !ddeData {
+            if !ddeData {
                 ddeData := "new tab"
             }
             ; Format output as JSON
-            jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) . "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":`"" . EscapeJSON(ddeData) . "`"}"
+            jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) .
+            "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":`"" . EscapeJSON(ddeData) . "`"}"
             ; MsgBox jsonOutput
             FileAppend(jsonOutput "`n", "*", "UTF-8")
             ddeData := ""
-            Return
+            return
         }
     }
     ; Format output as JSON with null url
-    jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) . "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":null}"
+    jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) .
+    "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":null}"
     ; MsgBox jsonOutput
     FileAppend(jsonOutput "`n", "*", "UTF-8")
-    Return
+    return
 }
 
 ;-------Function-------
-GetTitle() 
-{
+GetTitle() {
     Title := WinGetTitle("A")
-    Return Title
+    return Title
 }
 
-GetText() 
-{
+GetText() {
     Text := WinGetText("A")
-    Return Text
+    return Text
 }
 
-GetName() 
-{
+GetName() {
     Active_ID := WinGetID("A")
     Active_Process := WinGetProcessName("ahk_id " Active_ID)
     return Active_Process
 }
 
-GetAccData(WinId := "A") 
-{
+GetAccData(WinId := "A") {
     static w := Map(), n := 0
     th := WinExist(WinId)
-    if GetKeyState("Ctrl", "P")
-    {
+    if GetKeyState("Ctrl", "P") {
         w := Map()
         n := 0
     }
 
-    for i, v in w
-    {
+    for i, v in w {
         if (th = v[1])
-            Return [GetAccObjectFromWindow(v[1]).accName(0), ParseAccData(v[4])[2]]
+            return [GetAccObjectFromWindow(v[1]).accName(0), ParseAccData(v[4])[2]]
     }
 
     tr := ParseAccData(GetAccObjectFromWindow(th))
@@ -150,17 +146,15 @@ GetAccData(WinId := "A")
         tr.Push(0)
     }
 
-    if tr[2]
-    {
+    if tr[2] {
         n++
         w[n] := [th, tr[1], tr[2], tr[3]]
     }
 
-    Return [tr[1], tr[2]]
+    return [tr[1], tr[2]]
 }
 
-ParseAccData(accObj, accData := "") 
-{
+ParseAccData(accObj, accData := "") {
     ; Initialize accData as an array if not provided
     if (accData = "") {
         accData := [0, 0, 0] ; Pre-initialize with 3 elements
@@ -209,17 +203,15 @@ ParseAccData(accObj, accData := "")
         ; Do nothing if child processing fails
     }
 
-    Return accData
+    return accData
 }
 
-GetAccInit() 
-{
+GetAccInit() {
     static hw := DllCall("LoadLibrary", "Str", "oleacc", "Ptr")
     return hw
 }
 
-GetAccObjectFromWindow(hWnd, idObject := 0) 
-{
+GetAccObjectFromWindow(hWnd, idObject := 0) {
     static IID_IAccessible := "{618736E0-3C3D-11CF-810C-00AA00389B71}"
 
     ; Load oleacc.dll if needed
@@ -237,11 +229,11 @@ GetAccObjectFromWindow(hWnd, idObject := 0)
     pacc := 0
     loop 60 {
         ; Try to get the accessible object
-        hr := DllCall("oleacc\AccessibleObjectFromWindow", 
-        "Ptr", hWnd, 
-        "UInt", idObject & 0xFFFFFFFF, 
-        "Ptr", GUID, 
-        "Ptr*", &pacc)
+        hr := DllCall("oleacc\AccessibleObjectFromWindow",
+            "Ptr", hWnd,
+            "UInt", idObject & 0xFFFFFFFF,
+            "Ptr", GUID,
+            "Ptr*", &pacc)
 
         if (hr = 0 && pacc != 0) ; S_OK and got an object
             break
@@ -258,8 +250,7 @@ GetAccObjectFromWindow(hWnd, idObject := 0)
     return ComObjFromPtr(pacc)
 }
 
-GetAccQuery(objAcc) 
-{
+GetAccQuery(objAcc) {
     try {
         if ComObjType(objAcc, "Name") != "IAccessible"
             return 0
@@ -267,8 +258,7 @@ GetAccQuery(objAcc)
     }
 }
 
-GetAccChildren(objAcc) 
-{
+GetAccChildren(objAcc) {
     ; Safety check
     if (!IsObject(objAcc)) {
         return []
@@ -288,14 +278,14 @@ GetAccChildren(objAcc)
 
         varChildren := Buffer(cChildren * (8 + 2 * A_PtrSize), 0)
 
-        if (!DllCall("oleacc\AccessibleChildren", 
-            "Ptr", ComObjValue(objAcc), 
-        "Int", 0, 
-        "Int", cChildren, 
-        "Ptr", varChildren, 
-        "Int*", &cChildren)) {
+        if (!DllCall("oleacc\AccessibleChildren",
+            "Ptr", ComObjValue(objAcc),
+            "Int", 0,
+            "Int", cChildren,
+            "Ptr", varChildren,
+            "Int*", &cChildren)) {
 
-            Loop cChildren {
+            loop cChildren {
                 i := (A_Index - 1) * (A_PtrSize * 2 + 8) + 8
                 child := NumGet(varChildren, i, "Ptr")
                 vt := NumGet(varChildren, i - 8, "UChar")
@@ -325,15 +315,15 @@ GetAccChildren(objAcc)
 }
 
 ; Get the real process name, handling UWP apps in ApplicationFrameHost
-GetRealProcessName(hWnd)
-{
+GetRealProcessName(hWnd) {
     processName := WinGetProcessName("ahk_id " hWnd)
 
     ; If it's ApplicationFrameHost, dig deeper to find the real UWP app
     if (processName = "ApplicationFrameHost.exe") {
         try {
             ; Method 1: Try to find CoreWindow child
-            childHwnd := DllCall("FindWindowEx", "Ptr", hWnd, "Ptr", 0, "Str", "Windows.UI.Core.CoreWindow", "Ptr", 0, "Ptr")
+            childHwnd := DllCall("FindWindowEx", "Ptr", hWnd, "Ptr", 0, "Str", "Windows.UI.Core.CoreWindow", "Ptr", 0,
+                "Ptr")
 
             if (childHwnd) {
                 childPid := 0
@@ -347,7 +337,8 @@ GetRealProcessName(hWnd)
             }
 
             ; Method 2: Try ApplicationFrameWindow child
-            childHwnd := DllCall("FindWindowEx", "Ptr", hWnd, "Ptr", 0, "Str", "ApplicationFrameWindow", "Ptr", 0, "Ptr")
+            childHwnd := DllCall("FindWindowEx", "Ptr", hWnd, "Ptr", 0, "Str", "ApplicationFrameWindow", "Ptr", 0,
+                "Ptr")
 
             if (childHwnd) {
                 childPid := 0
@@ -364,7 +355,7 @@ GetRealProcessName(hWnd)
             WinGetPID(&parentPid, "ahk_id " hWnd)
 
             childWnd := DllCall("GetWindow", "Ptr", hWnd, "UInt", 5, "Ptr") ; GW_CHILD = 5
-            Loop {
+            loop {
                 if (!childWnd)
                     break
 
@@ -390,8 +381,7 @@ GetRealProcessName(hWnd)
 }
 
 ; Helper function to get process name by PID
-GetProcessNameByPID(pid) 
-{
+GetProcessNameByPID(pid) {
     try {
         hProcess := DllCall("OpenProcess", "UInt", 0x1000, "Int", 0, "UInt", pid, "Ptr")
         if (hProcess) {
@@ -410,8 +400,7 @@ GetProcessNameByPID(pid)
     return ""
 }
 
-GetAppDisplayName(processName) 
-{
+GetAppDisplayName(processName) {
     try {
         ; Get the full path of the process
         for proc in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process where Name='" processName "'") {
@@ -424,17 +413,19 @@ GetAppDisplayName(processName)
                 size := DllCall("version\GetFileVersionInfoSize", "Str", processPath, "UInt*", 0, "UInt")
                 if (size > 0) {
                     verInfo := Buffer(size)
-                    if (DllCall("version\GetFileVersionInfo", "Str", processPath, "UInt", 0, "UInt", size, "Ptr", verInfo)) {
+                    if (DllCall("version\GetFileVersionInfo", "Str", processPath, "UInt", 0, "UInt", size, "Ptr",
+                        verInfo)) {
 
                         ; Try to get the translation table to find available languages
                         pTranslate := 0
                         lenTranslate := 0
 
-                        if (DllCall("version\VerQueryValue", "Ptr", verInfo, "Str", "\VarFileInfo\Translation", "Ptr*", &pTranslate, "UInt*", &lenTranslate)) {
+                        if (DllCall("version\VerQueryValue", "Ptr", verInfo, "Str", "\VarFileInfo\Translation", "Ptr*", &
+                            pTranslate, "UInt*", &lenTranslate)) {
                             ; We have translations, try each one
                             numTranslations := lenTranslate // 4 ; Each translation is 4 bytes (WORD + WORD)
 
-                            Loop numTranslations {
+                            loop numTranslations {
                                 offset := (A_Index - 1) * 4
                                 lang := Format("{:04x}", NumGet(pTranslate + offset, "UShort"))
                                 codepage := Format("{:04x}", NumGet(pTranslate + offset + 2, "UShort"))
@@ -444,7 +435,8 @@ GetAppDisplayName(processName)
                                 pValue := 0
                                 len := 0
 
-                                if (DllCall("version\VerQueryValue", "Ptr", verInfo, "Str", queryStr, "Ptr*", &pValue, "UInt*", &len)) {
+                                if (DllCall("version\VerQueryValue", "Ptr", verInfo, "Str", queryStr, "Ptr*", &pValue,
+                                    "UInt*", &len)) {
                                     fileDesc := StrGet(pValue, "UTF-16")
                                     if (fileDesc) {
                                         return fileDesc ; Return first valid description found
@@ -460,7 +452,8 @@ GetAppDisplayName(processName)
                             pValue := 0
                             len := 0
 
-                            if (DllCall("version\VerQueryValue", "Ptr", verInfo, "Str", queryStr, "Ptr*", &pValue, "UInt*", &len)) {
+                            if (DllCall("version\VerQueryValue", "Ptr", verInfo, "Str", queryStr, "Ptr*", &pValue,
+                                "UInt*", &len)) {
                                 fileDesc := StrGet(pValue, "UTF-16")
                                 if (fileDesc) {
                                     return fileDesc
@@ -477,8 +470,7 @@ GetAppDisplayName(processName)
     return RegExReplace(processName, "\.exe$", "")
 }
 
-GetBrowserURL_DDE(sClass) 
-{
+GetBrowserURL_DDE(sClass) {
     sServer := WinGetProcessName("ahk_class " sClass)
     sServer := SubStr(sServer, 1, StrLen(sServer) - 4)
 
@@ -496,7 +488,8 @@ GetBrowserURL_DDE(sClass)
     sData := ""
     if (hConv) {
         nResult := 0
-        hData := DllCall("DdeClientTransaction", "Ptr", 0, "UInt", 0, "UInt", hConv, "UInt", hItem, "UInt", 1, "UInt", 0x20B0, "UInt", 10000, "UInt*", &nResult)
+        hData := DllCall("DdeClientTransaction", "Ptr", 0, "UInt", 0, "UInt", hConv, "UInt", hItem, "UInt", 1, "UInt",
+            0x20B0, "UInt", 10000, "UInt*", &nResult)
 
         if (hData) {
             ; Get data size first

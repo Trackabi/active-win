@@ -19,6 +19,13 @@ ModernBrowsers :=
     "ApplicationFrameWindow,Chrome_WidgetWin_0,Chrome_WidgetWin_1,Maxthon3Cls_MainFrm,MozillaWindowClass,Slimjet_WidgetWin_1"
 ModernbrowsersProcesses := "msedge.exe,iexplore.exe,chrome.exe,opera.exe,brave.exe,vivaldi.exe,MicrosoftEdge.exe"
 
+; Last known good output — used as fallback when a transient window (notification, toast, etc.) steals focus
+lastValidOutput := ""
+
+; Window classes and processes that are transient/overlay and should be ignored
+TransientClasses := "Windows.UI.Core.CoreWindow,NativeHWNDHost,Shell_TrayWnd,Shell_SecondaryTrayWnd,NotifyIconOverflowWindow,TopLevelWindowForOverflowXamlIsland,XamlExplorerHostIslandWindow,InputApp"
+TransientProcesses := "ShellExperienceHost.exe,SearchHost.exe,StartMenuExperienceHost.exe,TextInputHost.exe"
+
 ; Main loop instead of timer
 loop {
     try {
@@ -30,38 +37,67 @@ loop {
         ; MsgBox jsonOutput
         FileAppend(jsonOutput "`n", "*", "UTF-8")
     }
-    Sleep 1500 ; 1.8 seconds between checks
+    Sleep 1500 ; 1.5 seconds between checks
 }
 
 SaveURl() {
+    global lastValidOutput, TransientClasses, TransientProcesses
+
     ; Get active window
     activeWin := WinExist("A")
-    if (!activeWin) {
-        ; No active window, return null JSON
-        jsonOutput := "{`"name`":null,`"displayName`":null,`"title`":null,`"url`":null}"
-        ; MsgBox jsonOutput
-        FileAppend(jsonOutput "`n", "*", "UTF-8")
-        return
+
+    ; Validate the active window — check if it's real, visible, and not transient
+    if (activeWin) {
+        try {
+            sClass := WinGetClass("ahk_id " activeWin)
+        } catch {
+            sClass := ""
+        }
+        try {
+            title := WinGetTitle("ahk_id " activeWin)
+        } catch {
+            title := ""
+        }
+        try {
+            name := GetRealProcessName(activeWin)
+        } catch {
+            name := ""
+        }
+
+        isTransient := InStr(TransientClasses, sClass) || InStr(TransientProcesses, name) || (!name && !title)
+    } else {
+        isTransient := true
     }
 
-    ; Try to get window class, title and process name with error handling
-    try {
-        sClass := WinGetClass("ahk_id " activeWin)
-    } catch {
-        sClass := ""
+    ; If no active window or it's transient — find the topmost real window instead
+    if (!activeWin || isTransient) {
+        activeWin := GetTopVisibleWindow()
+        if (!activeWin) {
+            ; Nothing found — fall back to last valid output
+            if (lastValidOutput) {
+                ; MsgBox lastValidOutput
+                FileAppend(lastValidOutput "`n", "*", "UTF-8")
+            }
+            return
+        }
+        ; Re-read properties from the fallback window
+        try {
+            sClass := WinGetClass("ahk_id " activeWin)
+        } catch {
+            sClass := ""
+        }
+        try {
+            title := WinGetTitle("ahk_id " activeWin)
+        } catch {
+            title := ""
+        }
+        try {
+            name := GetRealProcessName(activeWin)
+        } catch {
+            name := ""
+        }
     }
 
-    try {
-        title := WinGetTitle("ahk_id " activeWin)
-    } catch {
-        title := ""
-    }
-
-    try {
-        name := GetRealProcessName(activeWin)
-    } catch {
-        name := ""
-    }
     try {
         displayName := GetAppDisplayName(name)
     } catch {
@@ -70,7 +106,7 @@ SaveURl() {
 
     if InStr(ModernbrowsersProcesses, name) {
         if InStr(ModernBrowsers, sClass) {
-            accData := GetAccData()
+            accData := GetAccData("ahk_id " activeWin)
             if !accData {
                 return
             }
@@ -81,6 +117,7 @@ SaveURl() {
             ; Format output as JSON
             jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) .
             "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":`"" . EscapeJSON(_2Data) . "`"}"
+            lastValidOutput := jsonOutput
             ; MsgBox jsonOutput
             FileAppend(jsonOutput "`n", "*", "UTF-8")
             _2Data := ""
@@ -93,6 +130,7 @@ SaveURl() {
             ; Format output as JSON
             jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) .
             "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":`"" . EscapeJSON(ddeData) . "`"}"
+            lastValidOutput := jsonOutput
             ; MsgBox jsonOutput
             FileAppend(jsonOutput "`n", "*", "UTF-8")
             ddeData := ""
@@ -102,9 +140,60 @@ SaveURl() {
     ; Format output as JSON with null url
     jsonOutput := "{`"name`":`"" . EscapeJSON(name) . "`",`"displayName`":`"" . EscapeJSON(displayName) .
     "`",`"title`":`"" . EscapeJSON(title) . "`",`"url`":null}"
+    lastValidOutput := jsonOutput
     ; MsgBox jsonOutput
     FileAppend(jsonOutput "`n", "*", "UTF-8")
     return
+}
+
+; Walk windows in Z-order (top to bottom) and return the first visible, non-minimized, non-transient window
+GetTopVisibleWindow() {
+    global TransientClasses, TransientProcesses
+
+    ; Start from the topmost window
+    hw := DllCall("GetTopWindow", "Ptr", 0, "Ptr")  ; desktop's first child = topmost Z-order
+
+    loop {
+        if (!hw)
+            break
+
+        ; Check: visible and not minimized
+        isVisible := DllCall("IsWindowVisible", "Ptr", hw, "Int")
+        isMinimized := DllCall("IsIconic", "Ptr", hw, "Int")
+
+        if (isVisible && !isMinimized) {
+            try {
+                wClass := WinGetClass("ahk_id " hw)
+            } catch {
+                wClass := ""
+            }
+            try {
+                wTitle := WinGetTitle("ahk_id " hw)
+            } catch {
+                wTitle := ""
+            }
+            try {
+                wName := WinGetProcessName("ahk_id " hw)
+            } catch {
+                wName := ""
+            }
+
+            ; Skip transient windows, empty titles, and the desktop shell window
+            if (wTitle && wName
+                && !InStr(TransientClasses, wClass)
+                && !InStr(TransientProcesses, wName)
+                && wClass != "Progman"         ; desktop
+                && wClass != "WorkerW"         ; desktop wallpaper worker
+                ) {
+                return hw
+            }
+        }
+
+        ; Next window in Z-order
+        hw := DllCall("GetWindow", "Ptr", hw, "UInt", 2, "Ptr")  ; GW_HWNDNEXT = 2
+    }
+
+    return 0
 }
 
 ;-------Function-------
@@ -125,11 +214,15 @@ GetName() {
 }
 
 GetAccData(WinId := "A") {
-    static w := Map(), n := 0
+    static w := Map(), wKey := 0, callCount := 0
     th := WinExist(WinId)
-    if GetKeyState("Ctrl", "P") {
+
+    ; Periodically clear stale cache entries (every 50 calls ~75 seconds)
+    callCount++
+    if (Mod(callCount, 50) = 0) {
         w := Map()
-        n := 0
+        wKey := 0
+        callCount := 0
     }
 
     for i, v in w {
@@ -147,8 +240,8 @@ GetAccData(WinId := "A") {
     }
 
     if tr[2] {
-        n++
-        w[n] := [th, tr[1], tr[2], tr[3]]
+        wKey++
+        w[wKey] := [th, tr[1], tr[2], tr[3]]
     }
 
     return [tr[1], tr[2]]
@@ -222,8 +315,8 @@ GetAccObjectFromWindow(hWnd, idObject := 0) {
     GUID := Buffer(16, 0)
     DllCall("ole32\CLSIDFromString", "WStr", IID_IAccessible, "Ptr", GUID)
 
-    ; Send WM_GETOBJECT message
-    SendMessage 0x003D, 0, 1, "Chrome_RenderWidgetHostHWND1", "ahk_id " WinExist("A") ; WM_GETOBJECT
+    ; Send WM_GETOBJECT message to the specific window, not the current active window
+    SendMessage 0x003D, 0, 1, "Chrome_RenderWidgetHostHWND1", "ahk_id " hWnd ; WM_GETOBJECT
 
     ; Try to get the accessibility object
     pacc := 0
@@ -290,17 +383,17 @@ GetAccChildren(objAcc) {
                 child := NumGet(varChildren, i, "Ptr")
                 vt := NumGet(varChildren, i - 8, "UChar")
 
+                ; Calculate pointer to the VARIANT structure in the buffer
+                variantPtr := varChildren.Ptr + (A_Index - 1) * (A_PtrSize * 2 + 8)
+
                 if (vt = 9 && child) { ; VT_DISPATCH and valid pointer
                     try {
                         childObj := ComObjFromPtr(child)
                         Children.Push(childObj)
                     } catch {
                         ; Skip this child if there's an error
-                    }
-
-                    ; Release the object even if we had an error
-                    if (child) {
-                        DllCall("OleAut32\VariantClear", "Ptr", child)
+                        ; Clear the VARIANT to release the COM object
+                        DllCall("OleAut32\VariantClear", "Ptr", variantPtr)
                     }
                 } else if (child) {
                     Children.Push(child)

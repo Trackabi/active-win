@@ -6,3 +6,6 @@ yarn.lock
 /build
 lib/binding
 /build-tmp-napi-v9
+/.idea
+.DS_Store
+.vscode

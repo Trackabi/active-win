@@ -7,6 +7,22 @@ EscapeJSON(str) {
     str := StrReplace(str, "`t", "\t")
     return str
 }
+
+; Debug breadcrumb — enable by setting the ACTIVE_WIN_DEBUG environment variable.
+; Overwrites a single-line temp file with the last phase reached, so a hang on a
+; customer device can be pinpointed: the file shows where execution froze.
+DebugPhase(phase) {
+    global DEBUG, DEBUG_FILE
+    if (!DEBUG)
+        return
+    try {
+        f := FileOpen(DEBUG_FILE, "w", "UTF-8")
+        if (f) {
+            f.Write(FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss") " | " phase "`n")
+            f.Close()
+        }
+    }
+}
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 #NoTrayIcon
@@ -22,18 +38,24 @@ ModernbrowsersProcesses := "msedge.exe,iexplore.exe,chrome.exe,opera.exe,brave.e
 ; Last known good output — used as fallback when a transient window (notification, toast, etc.) steals focus
 lastValidOutput := ""
 
+; Debug logging toggle (see DebugPhase). Off unless ACTIVE_WIN_DEBUG is set in the environment.
+DEBUG := EnvGet("ACTIVE_WIN_DEBUG") != ""
+DEBUG_FILE := A_Temp "\active-win-debug.log"
+
 ; Window classes and processes that are transient/overlay and should be ignored
 TransientClasses := "Windows.UI.Core.CoreWindow,NativeHWNDHost,Shell_TrayWnd,Shell_SecondaryTrayWnd,NotifyIconOverflowWindow,TopLevelWindowForOverflowXamlIsland,XamlExplorerHostIslandWindow,InputApp"
 TransientProcesses := "ShellExperienceHost.exe,SearchHost.exe,StartMenuExperienceHost.exe,TextInputHost.exe"
 
 ; Main loop instead of timer
 loop {
+    DebugPhase("loop-start")
     try {
         SaveURL()
-    } catch Error as e {
-        ; If there's an error, output a JSON error object and continue
-        jsonOutput := "{`"name`":null,`"displayName`":null,`"title`":null,`"url`":null,`"error`":`"" . EscapeJSON(e.Message
-        ) . "`"}"
+    } catch Any as e {
+        ; Catch ANY thrown value (not only Error) so a stray non-Error throw can't kill the process
+        errMsg := IsObject(e) ? (HasProp(e, "Message") ? e.Message : Type(e)) : e
+        jsonOutput := "{`"name`":null,`"displayName`":null,`"title`":null,`"url`":null,`"error`":`"" . EscapeJSON(errMsg
+        "") . "`"}"
         ; MsgBox jsonOutput
         FileAppend(jsonOutput "`n", "*", "UTF-8")
     }
@@ -98,6 +120,7 @@ SaveURl() {
         }
     }
 
+    DebugPhase("display-name:" name)
     try {
         displayName := GetAppDisplayName(name)
     } catch {
@@ -106,6 +129,7 @@ SaveURl() {
 
     if InStr(ModernbrowsersProcesses, name) {
         if InStr(ModernBrowsers, sClass) {
+            DebugPhase("acc-data:" name)
             accData := GetAccData("ahk_id " activeWin)
             if !accData {
                 return
@@ -123,6 +147,7 @@ SaveURl() {
             _2Data := ""
             return
         } else {
+            DebugPhase("dde:" name)
             ddeData := GetBrowserURL_DDE(sClass)
             if !ddeData {
                 ddeData := "new tab"
@@ -214,21 +239,13 @@ GetName() {
 }
 
 GetAccData(WinId := "A") {
-    static w := Map(), wKey := 0, callCount := 0
+    ; Note: this previously cached the IAccessible COM object per window and reused it
+    ; across cycles. That produced stale/old URLs (the hwnd survives navigation) and could
+    ; block or fault when the cached object pointed at freed cross-process memory.
+    ; We now read fresh every call — correctness over a micro-optimization.
     th := WinExist(WinId)
-
-    ; Periodically clear stale cache entries (every 50 calls ~75 seconds)
-    callCount++
-    if (Mod(callCount, 50) = 0) {
-        w := Map()
-        wKey := 0
-        callCount := 0
-    }
-
-    for i, v in w {
-        if (th = v[1])
-            return [GetAccObjectFromWindow(v[1]).accName(0), ParseAccData(v[4])[2]]
-    }
+    if (!th)
+        return [0, 0]
 
     tr := ParseAccData(GetAccObjectFromWindow(th))
 
@@ -239,23 +256,27 @@ GetAccData(WinId := "A") {
         tr.Push(0)
     }
 
-    if tr[2] {
-        wKey++
-        w[wKey] := [th, tr[1], tr[2], tr[3]]
-    }
-
     return [tr[1], tr[2]]
 }
 
-ParseAccData(accObj, accData := "") {
+ParseAccData(accObj, accData := "", depth := 0) {
+    ; nodeBudget caps the total nodes visited per walk so a huge browser accessibility
+    ; tree can't make one cycle run for seconds. Reset at the top call (no accData yet).
+    static nodeBudget := 0
     ; Initialize accData as an array if not provided
     if (accData = "") {
         accData := [0, 0, 0] ; Pre-initialize with 3 elements
+        nodeBudget := 1500
     }
     ; Safety check for accObj
     if (!IsObject(accObj)) {
         return accData
     }
+    ; Stop walking once the budget is spent (the URL bar is normally found long before this)
+    if (nodeBudget <= 0) {
+        return accData
+    }
+    nodeBudget--
 
     ; Try to get accName
     try {
@@ -277,14 +298,15 @@ ParseAccData(accObj, accData := "") {
         ; Do nothing if this fails
     }
 
-    ; Try to process children if we don't have a URL yet
+    ; Try to process children if we don't have a URL yet (bounded recursion depth so a
+    ; deep or pathological accessibility tree can't make a single cycle run unbounded)
     try {
-        if (!accData[2]) { ; Check if element 2 exists AND is empty
+        if (!accData[2] && depth < 25 && nodeBudget > 0) { ; Check if element 2 exists AND is empty
             children := GetAccChildren(accObj)
             if (IsObject(children)) {
                 for _, accChild in children {
                     if (IsObject(accChild)) {
-                        ParseAccData(accChild, accData)
+                        ParseAccData(accChild, accData, depth + 1)
                         if (accData[2]) { ; If we found a URL, stop processing
                             break
                         }
@@ -315,8 +337,11 @@ GetAccObjectFromWindow(hWnd, idObject := 0) {
     GUID := Buffer(16, 0)
     DllCall("ole32\CLSIDFromString", "WStr", IID_IAccessible, "Ptr", GUID)
 
-    ; Send WM_GETOBJECT message to the specific window, not the current active window
-    SendMessage 0x003D, 0, 1, "Chrome_RenderWidgetHostHWND1", "ahk_id " hWnd ; WM_GETOBJECT
+    ; Send WM_GETOBJECT to the specific window. Wrapped in try with a short timeout so a
+    ; busy/hung browser UI thread can't stall (or throw) on this synchronous SendMessage.
+    try {
+        SendMessage(0x003D, 0, 1, "Chrome_RenderWidgetHostHWND1", "ahk_id " hWnd, , , , 1000) ; WM_GETOBJECT, 1s timeout
+    }
 
     ; Try to get the accessibility object
     pacc := 0
@@ -494,6 +519,18 @@ GetProcessNameByPID(pid) {
 }
 
 GetAppDisplayName(processName) {
+    ; The display name for a given exe never changes — cache it so the (potentially slow
+    ; or hanging) WMI query runs at most once per process name per exe run, instead of on
+    ; every 1.5s cycle. The cache resets when the exe is restarted.
+    static cache := Map()
+    if (cache.Has(processName))
+        return cache[processName]
+    result := ComputeAppDisplayName(processName)
+    cache[processName] := result
+    return result
+}
+
+ComputeAppDisplayName(processName) {
     try {
         ; Get the full path of the process
         for proc in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process where Name='" processName "'") {

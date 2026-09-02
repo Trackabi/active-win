@@ -126,7 +126,7 @@ Wayland has no portable way to identify the active window ([read more…](https:
 |---|---|---|
 | Hyprland | `hyprctl activewindow -j` | none |
 | Sway | `swaymsg -t get_tree` | none |
-| GNOME Shell | [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/), [Window Calls Extended](https://extensions.gnome.org/extension/4974/window-calls-extended/) or [Window Calls](https://extensions.gnome.org/extension/4724/window-calls/) over D-Bus | install one extension, then log out and in |
+| GNOME Shell | the bundled Trackabi extension (`io.trackabi.ActiveWindow`), [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/), [Window Calls Extended](https://extensions.gnome.org/extension/4974/window-calls-extended/) or [Window Calls](https://extensions.gnome.org/extension/4724/window-calls/) over D-Bus | install one extension, then log out and in |
 | KDE Plasma 5/6 | a resident KWin script loaded over `org.kde.kwin.Scripting` that reports focus changes back over D-Bus | none |
 | anything else | X11 fallback (XWayland apps only) | — |
 

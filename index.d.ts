@@ -94,6 +94,7 @@ export type LinuxBackend =
 	| 'hyprland'
 	| 'sway'
 	| 'kwin'
+	| 'gnome-trackabi'
 	| 'gnome-focused-window-dbus'
 	| 'gnome-window-calls-extended'
 	| 'gnome-window-calls';

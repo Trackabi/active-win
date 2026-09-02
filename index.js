@@ -7,7 +7,7 @@ import {
 	activeWindowSync as activeWindowSyncLinux,
 	openWindowsSync as openWindowsSyncLinux,
 } from './lib/linux.js';
-import { activeWindow as activeWindowWindows } from './lib/windows.js';
+import {activeWindow as activeWindowWindows} from './lib/windows.js';
 
 export async function activeWindow(options) {
 	if (process.platform === 'darwin') {
@@ -80,3 +80,17 @@ export function openWindowsSync(options) {
 }
 
 // Note to self: The `main` field in package.json is requried for pre-gyp.
+
+/**
+Linux only: describe which window provider is in use and whether the current
+(Wayland) session can identify native windows at all. Resolves to `undefined`
+on other platforms.
+*/
+export async function linuxTrackingStatus() {
+	if (process.platform !== 'linux') {
+		return undefined;
+	}
+
+	const {linuxTrackingStatus} = await import('./lib/linux.js');
+	return linuxTrackingStatus();
+}

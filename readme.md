@@ -118,7 +118,21 @@ It works on macOS 10.14+, Linux, and Windows 7+.
 
 ### Linux support
 
-Wayland is not supported. For security reasons, Wayland does not provide a way to identify the active window. [Read more…](https://stackoverflow.com/questions/45465016)
+X11 sessions use `xprop` / `xwininfo`.
+
+Wayland has no portable way to identify the active window ([read more…](https://stackoverflow.com/questions/45465016)), so this fork ships one provider per compositor and uses the first one that responds:
+
+| Compositor | Provider | User setup |
+|---|---|---|
+| Hyprland | `hyprctl activewindow -j` | none |
+| Sway | `swaymsg -t get_tree` | none |
+| GNOME Shell | [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/), [Window Calls Extended](https://extensions.gnome.org/extension/4974/window-calls-extended/) or [Window Calls](https://extensions.gnome.org/extension/4724/window-calls/) over D-Bus | install one extension, then log out and in |
+| KDE Plasma 5/6 | a resident KWin script loaded over `org.kde.kwin.Scripting` that reports focus changes back over D-Bus | none |
+| anything else | X11 fallback (XWayland apps only) | — |
+
+D-Bus providers need the pure-JS `dbus-next` dependency and are async only (`activeWindowSync()` covers Hyprland, Sway and X11).
+
+Call `linuxTrackingStatus()` to find out which provider is active and, when none is, a setup hint to show the user. Result objects carry `backend` and `owner.appId` (the raw `app_id` / `WM_CLASS`); `owner.name` is normalized so reverse-DNS ids such as `org.mozilla.firefox` become `firefox`.
 
 ## Electron usage
 

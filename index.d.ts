@@ -89,9 +89,58 @@ export type MacOSResult = {
 	url?: string;
 } & BaseResult;
 
+export type LinuxBackend =
+	| 'x11'
+	| 'hyprland'
+	| 'sway'
+	| 'kwin'
+	| 'gnome-focused-window-dbus'
+	| 'gnome-window-calls-extended'
+	| 'gnome-window-calls';
+
+export type LinuxOwner = {
+	/**
+	Raw Wayland `app_id` / X11 `WM_CLASS` before normalization (e.g. `org.mozilla.firefox`).
+	*/
+	appId?: string;
+} & BaseOwner;
+
 export type LinuxResult = {
 	platform: 'linux';
+
+	/**
+	Which provider produced the result. Wayland compositors each need their own.
+	*/
+	backend: LinuxBackend;
+
+	owner: LinuxOwner;
 } & BaseResult;
+
+export type LinuxTrackingStatus = {
+	platform: 'linux';
+	sessionType: 'x11' | 'wayland' | 'unknown';
+	isWayland: boolean;
+	desktop: string;
+	backend?: LinuxBackend;
+
+	/**
+	`true` when native windows can be identified: always on X11, and on Wayland
+	only when a compositor-specific provider responded.
+	*/
+	waylandCapable: boolean;
+
+	/**
+	Human-readable setup instruction when `waylandCapable` is `false`.
+	*/
+	hint?: string;
+
+	candidates: Array<{
+		name: LinuxBackend;
+		unavailable: boolean;
+		error?: string;
+		serviceGone?: boolean;
+	}>;
+};
 
 export type WindowsResult = {
 	platform: 'windows';
@@ -170,3 +219,10 @@ Get metadata about all open windows synchronously.
 Windows are returned in order from front to back.
 */
 export function openWindowsSync(options?: Options): Result[];
+
+/**
+Linux only: describe which window provider is in use and whether the current
+(Wayland) session can identify native windows at all. Resolves to `undefined`
+on other platforms.
+*/
+export function linuxTrackingStatus(): Promise<LinuxTrackingStatus | undefined>;

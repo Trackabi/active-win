@@ -14,14 +14,8 @@ func toJson<T>(_ data: T) throws -> String {
 
 
 // Show the system prompt if there's no permission.
+// Ask TCC rather than open a display stream: creating one can hang in WindowServer for about 30 s and
+// then return nil with the permission granted, which read as a missing permission.
 func hasScreenRecordingPermission() -> Bool {
-	CGDisplayStream(
-		dispatchQueueDisplay: CGMainDisplayID(),
-		outputWidth: 1,
-		outputHeight: 1,
-		pixelFormat: Int32(kCVPixelFormatType_32BGRA),
-		properties: nil,
-		queue: DispatchQueue.global(),
-		handler: { _, _, _, _ in }
-	) != nil
+	CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess()
 }
